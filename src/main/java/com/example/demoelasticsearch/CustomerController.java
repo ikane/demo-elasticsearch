@@ -25,4 +25,9 @@ public class CustomerController {
 	public Object findCustomersWithTags(@RequestParam List<String> tags) {
 		return customerService.findCustomersWithTags(tags);
 	}
+
+	@GetMapping("/customers-having-tag")
+	public Object getCustomerAggregateHavingTagAndEyeColor(@RequestParam String tag, @RequestParam String eyeColor) {
+		return customerService.getCustomerAggregateHavingTagAndEyeColor(tag, eyeColor);
+	}
 }

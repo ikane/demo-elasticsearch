@@ -7,9 +7,12 @@ import org.elasticsearch.index.query.*;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.Aggregations;
+import org.elasticsearch.search.aggregations.bucket.filter.FilterAggregationBuilder;
+import org.elasticsearch.search.aggregations.bucket.filter.ParsedFilter;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.elasticsearch.search.aggregations.metrics.valuecount.ValueCountAggregationBuilder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.ResultsExtractor;
@@ -82,12 +85,41 @@ public class CustomerService {
         return stats;
     }
 
+    public Object getCustomerAggregateHavingTagAndEyeColor(String tag, String eyeColor) {
+
+        FilterAggregationBuilder filterAggregationBuilder = AggregationBuilders.filter(
+                "having_tag_esse",
+                QueryBuilders.matchQuery("tags", tag)
+        );
+        FilterAggregationBuilder filterAggregationBuilder2 = AggregationBuilders.filter(
+                "having_blue_eye",
+                QueryBuilders.matchQuery("eyeColor", eyeColor)
+        );
+
+        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
+        boolQueryBuilder.must(QueryBuilders.matchQuery("isActive", true));
+
+        NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+                .withIndices("customers")
+                .withQuery(boolQueryBuilder)
+                .addAggregation(filterAggregationBuilder)
+                .addAggregation(filterAggregationBuilder2)
+                .build();
+
+        Aggregations aggregations = this.elasticsearchOperations.query(searchQuery, response -> response.getAggregations());
+        Map<String, Aggregation> aggregationMap = aggregations.asMap();
+        ParsedFilter parsedFilter = (ParsedFilter)aggregationMap.get("having_tag_esse");
+        ParsedFilter parsedFilter2 = (ParsedFilter)aggregationMap.get("having_blue_eye");
+
+        Map<String, Long> stats = new HashMap<>();
+        stats.put(parsedFilter.getName(), parsedFilter.getDocCount());
+        stats.put(parsedFilter2.getName(), parsedFilter2.getDocCount());
+
+        return stats;
+    }
+
     public Object testComplexQueries() {
-        /*
-        TermsAggregationBuilder aggregation = AggregationBuilders.terms("top_genders")
-                                                                 .field("gender")
-                                                                 .order(Terms.Order.count(false));
-        */
+
         NativeSearchQuery searchQuery = new NativeSearchQueryBuilder() //
                                                                        .withQuery(matchAllQuery()) //
                                                                        .withSearchType(SearchType.DEFAULT) //
@@ -97,16 +129,6 @@ public class CustomerService {
 
         ResultsExtractor<?> resultsExtractor = response -> response.getAggregations();
         Object query = this.elasticsearchOperations.query(searchQuery, resultsExtractor);
-
-        /*
-        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-        searchSourceBuilder.query(QueryBuilders.termQuery("gender", "M"));
-        CountRequest countRequest = new CountRequest();
-        countRequest.source(searchSourceBuilder);
-
-        SearchRequest searchRequest = new SearchRequest("users");
-        searchRequest.source(searchSourceBuilder);
-        */
 
         MatchQueryBuilder builder1 = new MatchQueryBuilder("gender", "M");
         SearchQuery searchQuery2 = new NativeSearchQueryBuilder()
