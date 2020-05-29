@@ -1,8 +1,10 @@
 package com.example.demoelasticsearch;
 
+import ch.qos.logback.classic.Logger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchType;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.*;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
@@ -14,8 +16,10 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.elasticsearch.search.aggregations.metrics.valuecount.ValueCountAggregationBuilder;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.ResultsExtractor;
+import org.springframework.data.elasticsearch.core.ScrolledPage;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.elasticsearch.core.query.SearchQuery;
@@ -27,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
+import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 import static org.elasticsearch.search.aggregations.AggregationBuilders.terms;
 
 @Slf4j
@@ -49,7 +54,8 @@ public class CustomerService {
 
     public List<Customer> findCustomersWithTags(List<String> tags) {
         BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
-        tags.forEach(tag -> queryBuilder.filter(QueryBuilders.matchQuery("tags", tag)));
+        //tags.forEach(tag -> queryBuilder.filter(QueryBuilders.matchQuery("tags", tag)));
+        queryBuilder.filter(termsQuery("tags", tags));
 
         NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
                 .withIndices("customers")
@@ -57,6 +63,44 @@ public class CustomerService {
                 .build();
 
         List<Customer> customers = this.elasticsearchOperations.queryForList(searchQuery, Customer.class);
+
+        return customers;
+    }
+
+    public List<Customer> findCustomersWithTagsAll(List<String> tags) {
+        BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
+        //tags.forEach(tag -> queryBuilder.filter(QueryBuilders.matchQuery("tags", tag)));
+        queryBuilder.filter(termsQuery("tags", tags));
+
+        NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+                .withIndices("customers")
+                .withQuery(queryBuilder)
+                .withPageable(PageRequest.of(0, 100))
+                .build();
+
+        log.info("DSL:{}", searchQuery.getQuery().toString());
+
+        List<Customer> customers = new ArrayList<>();
+
+        TimeValue timeValue = TimeValue.timeValueMinutes(1L);
+
+        ScrolledPage<Customer> scrolledPage = this.elasticsearchOperations.startScroll(
+                timeValue.millis(),
+                searchQuery,
+                Customer.class
+        );
+
+        long totalElements = scrolledPage.getTotalElements();
+        long counter = 0;
+
+        do {
+            customers.addAll(scrolledPage.getContent());
+            counter += scrolledPage.getNumberOfElements();
+            scrolledPage = this.elasticsearchOperations.continueScroll(scrolledPage.getScrollId(), timeValue.millis(),
+                                                                       Customer.class);
+        } while(counter < totalElements);
+
+        this.elasticsearchOperations.clearScroll(scrolledPage.getScrollId());
 
         return customers;
     }
