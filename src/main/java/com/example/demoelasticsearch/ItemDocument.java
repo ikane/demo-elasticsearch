@@ -16,4 +16,5 @@ public class ItemDocument {
     private double price;
     private boolean newItem;
     private String description;
+    private String composition;
 }

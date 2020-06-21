@@ -6,17 +6,18 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.CreateIndexResponse;
+import org.elasticsearch.client.indices.GetIndexRequest;
 import org.elasticsearch.common.settings.Settings;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.stereotype.Component;
+
+import java.io.IOException;
 
 @Slf4j
 @Component
 public class Initialization implements CommandLineRunner {
 
-    private final ElasticsearchOperations elasticsearchOperations;
     private final RestHighLevelClient client;
 
     @Value("${elastic.index.number_of_shards:5}")
@@ -26,14 +27,31 @@ public class Initialization implements CommandLineRunner {
     private int indexNumberOfReplicas;
 
 
-    public Initialization(ElasticsearchOperations elasticsearchOperations, RestHighLevelClient client) {
-        this.elasticsearchOperations = elasticsearchOperations;
+    public Initialization(RestHighLevelClient client) {
         this.client = client;
     }
 
     @Override
     public void run(String... args) throws Exception {
 
+        String indexName = "item_index";
+        try {
+            GetIndexRequest request = new GetIndexRequest(indexName);
+            if (!client.indices().exists(request, RequestOptions.DEFAULT)) {
+                CreateIndexRequest indexRequest = new CreateIndexRequest(indexName);
+                indexRequest.settings(Settings.builder()
+                        .put("index.number_of_shards", indexNumberOfShards)
+                        .put("index.number_of_replicas", indexNumberOfReplicas)
+                );
+
+                CreateIndexResponse createIndexResponse = client.indices().create(indexRequest, RequestOptions.DEFAULT);
+
+                log.info("Index 'item_index' created: {}", createIndexResponse.isAcknowledged());
+            }
+        } catch (IOException e) {
+            log.error(String.format("Can not create index %s", indexName), e);
+        }
+        /*
         if(!elasticsearchOperations.indexExists("item_index")) {
 
             CreateIndexRequest request = new CreateIndexRequest("item_index");
@@ -45,19 +63,7 @@ public class Initialization implements CommandLineRunner {
             CreateIndexResponse createIndexResponse = client.indices().create(request, RequestOptions.DEFAULT);
 
             log.info("Index 'item_index' created: {}", createIndexResponse.isAcknowledged());
-            /*
-            Settings settings = Settings.builder()
-                    .put("index.number_of_shards", 3)
-                    .put("index.number_of_replicas", 2)
-                    .build();
-
-            boolean indexCreated = elasticsearchOperations.createIndex("item_index", settings);
-
-            log.info("Index 'item_index' created: {}", indexCreated);
-            */
-
-
-
         }
+        */
     }
 }
