@@ -49,7 +49,7 @@ public class CustomerController {
 		return customerService.getCustomerAggregateHavingTagAndEyeColor(tag, eyeColor);
 	}
 
-	@GetMapping("/customers-export")
+	@GetMapping("/customers-export-zip")
 	public ResponseEntity<StreamingResponseBody> exportCustomers(@RequestParam List<String> tags) {
 
 		List<Customer> customers = customerService.findCustomersWithTagsAll(tags);
@@ -81,6 +81,29 @@ public class CustomerController {
 		return ResponseEntity.ok()
 		                     .header(CONTENT_TYPE, "application/zip")
 		                     .header(CONTENT_DISPOSITION, "attachment; filename=test.zip")
+		                     .body(t);
+	}
+
+	@GetMapping("/customers-export-csv")
+	public ResponseEntity<StreamingResponseBody> exportCustomersCsv(@RequestParam List<String> tags) {
+
+		List<Customer> customers = customerService.findCustomersWithTagsAll(tags);
+		StreamingResponseBody t = out -> {
+
+			out.write("id;name;email\n".getBytes());
+
+			for(Customer customer : customers) {
+				StringJoiner stringJoiner = new StringJoiner(";")
+								.add(customer.getId())
+								.add(customer.getName())
+								.add(customer.getEmail())
+								.add("\n");
+				out.write(stringJoiner.toString().getBytes());
+			}
+			out.close();
+		};
+		return ResponseEntity.ok()
+		                     .header(CONTENT_DISPOSITION, "attachment; filename=customers.csv")
 		                     .body(t);
 	}
 }
