@@ -5,7 +5,7 @@ import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 
-@Document(indexName = "item_index", type = "items", createIndex = false)
+@Document(indexName = "#{@elasticIndexProperties.name}", type = "#{@elasticIndexProperties.type}", createIndex = true)
 @Data
 @Builder(toBuilder = true)
 public class ItemDocument {
