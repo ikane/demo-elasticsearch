@@ -1,12 +1,21 @@
 package com.example.demoelasticsearch;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.elasticsearch.client.ClientConfiguration;
 import org.springframework.data.elasticsearch.client.RestClients;
 import org.springframework.data.elasticsearch.config.AbstractElasticsearchConfiguration;
+import org.springframework.data.elasticsearch.core.EntityMapper;
 import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
+
+import java.io.IOException;
+import java.util.Map;
 
 @Configuration
 @EnableElasticsearchRepositories/*(basePackages = "com.example.demorabbitmqelastic.repository")*/
@@ -49,4 +58,60 @@ public class ElasticsearchConfig extends AbstractElasticsearchConfiguration {
     }
      */
 
+    @Bean
+    @Override
+    public EntityMapper entityMapper() {
+        return new ElasticCustomEntityMapper();
+    }
+
+    private class ElasticCustomEntityMapper implements EntityMapper {
+
+        private ObjectMapper mapper;
+
+        public ElasticCustomEntityMapper() {
+            this.mapper = new ObjectMapper();
+            mapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+            mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+            mapper.registerModule(new JavaTimeModule());
+        }
+
+        @Override
+        public String mapToString(Object object) throws IOException {
+            return mapper.writeValueAsString(object);
+        }
+
+        @Override
+        public <T> T mapToObject(String source, Class<T> clazz) throws IOException {
+            return mapper.readValue(source, clazz);
+        }
+
+        /**
+         * Map the given {@literal source} to {@link Map}.
+         *
+         * @param source must not be {@literal null}.
+         *
+         * @return never {@literal null}
+         *
+         * @since 3.2
+         */
+        @Override
+        public Map<String, Object> mapObject(Object source) {
+            return mapper.convertValue(source, Map.class);
+        }
+
+        /**
+         * Map the given {@link Map} into an instance of the {@literal targetType}.
+         *
+         * @param source     must not be {@literal null}.
+         * @param targetType must not be {@literal null}.
+         *
+         * @return can be {@literal null}.
+         *
+         * @since 3.2
+         */
+        @Override
+        public <T> T readObject(Map<String, Object> source, Class<T> targetType) {
+            return mapper.convertValue(source, targetType);
+        }
+    }
 }

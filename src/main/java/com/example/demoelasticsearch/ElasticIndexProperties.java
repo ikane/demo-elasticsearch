@@ -10,6 +10,9 @@ import java.util.List;
 @Component
 @ConfigurationProperties(prefix = "elastic.index")
 public class ElasticIndexProperties {
+	public static final String INDEX_NUMBER_OF_SHARDS = "index.number_of_shards";
+	public static final String INDEX_NUMBER_OF_REPLICAS = "index.number_of_replicas";
+
 	private String name;
 	private String type;
 	private Integer numberOfShards = 5;
